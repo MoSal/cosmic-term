@@ -1,0 +1,49 @@
+name: CI Workflow
+run-name: ${{ github.actor }} is running CI workflow ${{ github.repository }} using GitHub Actions (run_id=${{ github.run_id }}) 🚀
+on: [push, pull_request]
+  #schedule:
+  #  - cron: '30 18 * * 3'
+jobs:
+  build_ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: update ubuntu
+        run: |
+          pwd
+          sudo apt update
+          sudo apt upgrade
+      - name: install build deps
+        run: |
+          pwd
+          sudo apt install -y --no-install-recommends build-essential pkg-config git cargo libxkbcommon-dev libwayland-dev
+      # NOTE: It's important to use the checkout action while git is in path
+      #       to make sure it uses git, not the REST api, for checkout.
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Avoid 'dubious ownership' errors from git cli
+        run: git config --global --add safe.directory '*'
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+      - name: build
+        run: |
+          pwd
+          cargo build --release
+      - name: show ELF dynamic section
+        run: |
+          pwd
+          readelf -d target/release/cosmic-term
+      - name: set DIST_BIN in env
+        run: |
+          echo "DIST_BIN=cosmic-term-x86_64-`git describe --tags --long --dirty`" >> "$GITHUB_ENV"
+      - run: mv target/release/cosmic-term ${{ env.DIST_BIN }}
+      - name: upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DIST_BIN }}
+          if-no-files-found: error
+          retention-days: 15
+          path: ${{ env.DIST_BIN }}
+      - run: echo "🍏 This job's status is ${{ job.status }}."
